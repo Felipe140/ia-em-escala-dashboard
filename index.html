@@ -1,0 +1,2153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-c474NeDy5VQ08IfhlClwJTciupQK6WaLTO6Y0QfCkbI='; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IA em escala — painel temporal</title>
+<meta name="description" content="Painel local para explorar a adoção de IA generativa ao longo do tempo, separando dado observado, sinal de plataforma, estimativa editorial e retrato histórico.">
+<style>
+/* IA em escala — painel local. Paleta e grade herdadas dos SVGs do projeto. */
+
+:root {
+  --bg: #070908;
+  --panel: #0c1210;
+  --panel-2: #101815;
+  --line: #1c2521;
+  --line-2: #2a342f;
+  --dot: #29312e;
+
+  --green: #5ee6a8;
+  --yellow: #f2c14e;
+  --red: #ff6b67;
+
+  --ink: #f3f7f5;
+  --ink-2: #a7b2ad;
+  --ink-3: #8b9791;
+
+  --display: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, ui-monospace, "SF Mono", "Liberation Mono", monospace;
+
+  --r: 10px;
+  --pad: clamp(16px, 2.2vw, 28px);
+  --gap: clamp(14px, 1.6vw, 20px);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 70% at 50% 100%, rgba(18, 60, 44, .38) 0%, rgba(9, 16, 13, .12) 55%, rgba(7, 9, 8, 0) 100%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1.5;
+  padding: clamp(18px, 2.4vw, 34px) clamp(14px, 3vw, 44px) 64px;
+}
+
+.wrap { max-width: 1440px; margin: 0 auto; }
+
+/* ---------- utilitários ---------- */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.note {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--green);
+  color: #06120c;
+  padding: 10px 16px;
+  border-radius: 0 0 var(--r) 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  z-index: 50;
+}
+.skip:focus { left: 0; }
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------- selo de natureza do dado ---------- */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tag::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+}
+.tag--observado { color: #cdf3e2; border-color: rgba(94, 230, 168, .34); }
+.tag--observado::before { background: var(--green); }
+.tag--sinal { color: #f7e3b4; border-color: rgba(242, 193, 78, .34); }
+.tag--sinal::before { background: var(--yellow); }
+.tag--estimado { color: #ffd0cd; border-color: rgba(255, 107, 103, .34); }
+.tag--estimado::before { background: var(--red); }
+.tag--arquivo { color: var(--ink-2); border-color: var(--line-2); }
+.tag--arquivo::before { background: var(--dot); box-shadow: inset 0 0 0 1px var(--line-2); }
+
+/* ---------- cabeçalho ---------- */
+
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--gap);
+  align-items: end;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.masthead__title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 4.1vw, 52px);
+  line-height: 1.03;
+  letter-spacing: -.028em;
+  margin: 10px 0 0;
+  max-width: 17ch;
+}
+
+.masthead__stamp { text-align: right; }
+
+.masthead__period {
+  font-family: var(--num);
+  font-variation-settings: "wght" 700, "wdth" 85;
+  font-weight: 700;
+  font-size: clamp(20px, 2.4vw, 30px);
+  color: var(--ink);
+  margin: 6px 0 4px;
+  letter-spacing: -.005em;
+}
+
+.masthead__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+/* ---------- linha do tempo ---------- */
+
+.scrub {
+  margin: 22px 0 var(--gap);
+  padding: 18px var(--pad) 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.scrub__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.scrub__body { display: block; }
+
+.scrub__track {
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.scrub__rail {
+  position: absolute;
+  left: 0; right: 0; top: 27px;
+  height: 2px;
+  background: var(--line-2);
+}
+
+.scrub__fill {
+  position: absolute;
+  left: 0; top: 0; height: 100%;
+  background: var(--green);
+  box-shadow: 0 0 14px rgba(94, 230, 168, .5);
+  transition: width .22s ease;
+}
+
+.scrub__notches {
+  position: absolute;
+  inset: 0;
+  list-style: none;
+  margin: 0; padding: 0;
+  pointer-events: none;
+}
+
+.scrub__notch {
+  position: absolute;
+  top: 21px;
+  width: 14px; height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--line-2);
+  transition: border-color .18s ease, background .18s ease;
+}
+.scrub__notch[data-state="past"] { border-color: var(--green); }
+.scrub__notch[data-state="current"] {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: 0 0 0 5px rgba(94, 230, 168, .16);
+}
+
+.scrub__input {
+  position: relative;
+  z-index: 2;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  height: 56px;
+  cursor: pointer;
+}
+.scrub__input::-webkit-slider-runnable-track { height: 56px; background: transparent; }
+.scrub__input::-moz-range-track { height: 56px; background: transparent; }
+.scrub__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  margin-top: 17px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 3px solid #06120c;
+  box-shadow: 0 0 0 1px var(--green), 0 0 18px rgba(94, 230, 168, .55);
+}
+.scrub__input::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 3px solid #06120c;
+  box-shadow: 0 0 0 1px var(--green), 0 0 18px rgba(94, 230, 168, .55);
+}
+
+.scrub__labels {
+  position: relative;
+  height: 32px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scrub__label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition: color .18s ease;
+}
+.scrub__label[data-state="current"] { color: var(--ink); }
+.scrub__label[data-edge="first"] { transform: translateX(0); }
+.scrub__label[data-edge="last"] { transform: translateX(-100%); }
+
+.btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+.btn:hover { color: var(--ink); border-color: #3d4a44; }
+.btn[aria-pressed="true"] {
+  color: #06120c;
+  background: var(--green);
+  border-color: var(--green);
+}
+.btn:disabled { opacity: .38; cursor: not-allowed; }
+.btn--play { min-width: 124px; }
+
+/* ---------- painéis ---------- */
+
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--gap);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--pad);
+  min-width: 0;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.panel__title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+  margin: 6px 0 0;
+}
+
+.panel--archive { grid-column: 1 / -1; }
+
+/* ---------- adoção ---------- */
+
+.adoption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
+  gap: clamp(18px, 2.4vw, 34px);
+  align-items: start;
+  margin-top: 20px;
+}
+
+.grid-figure { margin: 0; min-width: 0; }
+
+.grid-figure svg { display: block; width: 100%; height: auto; }
+
+.grid-figure__caption {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 12px;
+  letter-spacing: .04em;
+}
+
+.readout__value {
+  font-family: var(--num);
+  font-variation-settings: "wght" 700, "wdth" 82;
+  font-weight: 700;
+  font-size: clamp(52px, 6.6vw, 78px);
+  line-height: .92;
+  letter-spacing: -.03em;
+  color: var(--green);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.readout__value[data-state="vazio"] { color: var(--ink-3); font-size: clamp(24px, 3vw, 32px); }
+
+.readout__unit {
+  font-size: 14.5px;
+  color: var(--ink-2);
+  margin: 12px 0 0;
+  line-height: 1.45;
+}
+
+.readout__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
+
+.readout__prov {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.parts { list-style: none; margin: 16px 0 0; padding: 0; }
+.parts__item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.parts__dot { width: 10px; height: 10px; border-radius: 50%; transform: translateY(1px); }
+.parts__value { font-family: var(--num); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- série temporal ---------- */
+
+.series { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+.series svg { display: block; width: 100%; height: auto; }
+.series__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 12px;
+}
+
+/* ---------- plataformas ---------- */
+
+.warnbar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(242, 193, 78, .3);
+  background: rgba(242, 193, 78, .06);
+  border-radius: 8px;
+}
+.warnbar__mark {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: var(--yellow);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+.warnbar__text { font-size: 13px; line-height: 1.55; color: var(--ink-2); margin: 0; }
+
+.signals { list-style: none; margin: 16px 0 0; padding: 0; }
+
+.signal {
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 13px;
+}
+.signal:first-child { border-top: 0; padding-top: 4px; }
+
+.signal__dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  margin-top: 9px;
+}
+.signal--green .signal__dot { background: var(--green); }
+.signal--yellow .signal__dot { background: var(--yellow); }
+.signal--red .signal__dot { background: var(--red); }
+
+.signal__value {
+  font-family: var(--num);
+  font-variation-settings: "wght" 700, "wdth" 85;
+  font-weight: 700;
+  font-size: clamp(28px, 3.2vw, 38px);
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.signal__label { font-size: 14px; color: var(--ink-2); margin: 3px 0 0; }
+.signal__scope { margin-top: 6px; }
+
+.signal[data-state="pendente"] { opacity: .5; }
+.signal[data-state="pendente"] .signal__value {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--ink-3);
+}
+
+/* ---------- retrato histórico ---------- */
+
+.archive {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: clamp(18px, 2.6vw, 40px);
+  margin-top: 18px;
+  align-items: start;
+}
+.archive[data-state="fora"] { opacity: .55; }
+
+.archive__rows { list-style: none; margin: 0; padding: 0; }
+.archive__row {
+  display: grid;
+  grid-template-columns: 10px auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.archive__swatch { width: 10px; height: 10px; border-radius: 50%; transform: translateY(1px); }
+.archive__value {
+  font-family: var(--num);
+  font-weight: 700;
+  font-size: 21px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.archive__label { font-size: 13.5px; color: var(--ink-2); }
+
+/* ---------- ferramentas (editor + fontes) ---------- */
+
+.tools { margin-top: var(--gap); display: grid; gap: var(--gap); }
+
+.drawer {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  min-width: 0;
+}
+
+.drawer__summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px var(--pad);
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.drawer__summary::-webkit-details-marker { display: none; }
+.drawer__summary::before {
+  content: "+";
+  font-size: 16px;
+  line-height: 1;
+  color: var(--green);
+  width: 14px;
+}
+.drawer[open] > .drawer__summary::before { content: "\2013"; }
+.drawer[open] > .drawer__summary { border-bottom: 1px solid var(--line); color: var(--ink); }
+.drawer__hint { color: var(--ink-3); letter-spacing: .04em; text-transform: none; font-size: 12px; }
+
+.drawer__body { padding: var(--pad); min-width: 0; }
+
+.editor__section { margin-bottom: 30px; min-width: 0; }
+.editor__section:last-child { margin-bottom: 0; }
+
+.editor__title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -.01em;
+}
+
+.tablewrap { overflow-x: auto; margin-top: 12px; max-width: 100%; min-width: 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 560px;
+}
+th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: left;
+  font-weight: 400;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+td:last-child, th:last-child { padding-right: 0; }
+
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: #080d0b;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 7px 9px;
+  width: 100%;
+  min-width: 0;
+}
+input[type="number"] { font-variant-numeric: tabular-nums; }
+textarea { resize: vertical; line-height: 1.5; }
+select { cursor: pointer; }
+input::placeholder, textarea::placeholder { color: #5c6a64; }
+
+.field { display: block; }
+.field__label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+
+.addrow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line-2);
+}
+
+.rowbtn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rowbtn:hover { color: var(--red); border-color: rgba(255, 107, 103, .5); }
+.rowbtn[data-armed="1"] { color: #06120c; background: var(--red); border-color: var(--red); }
+
+.iobar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+
+.status {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 12px 0 0;
+  min-height: 1.4em;
+}
+.status[data-tone="ok"] { color: var(--green); }
+.status[data-tone="erro"] { color: var(--red); }
+
+.sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.sources__item { border-left: 2px solid var(--line-2); padding-left: 14px; }
+.sources__name { font-size: 14px; color: var(--ink); margin: 0 0 3px; font-weight: 600; }
+.sources a { color: var(--green); text-decoration: none; word-break: break-all; }
+.sources a:hover { text-decoration: underline; }
+
+.method { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; display: grid; gap: 12px; }
+.method__item { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); margin: 0; }
+.method__item strong { color: var(--ink); font-weight: 600; }
+
+.pagefoot {
+  margin-top: 34px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  justify-content: space-between;
+}
+
+/* ---------- responsivo ---------- */
+
+@media (max-width: 1080px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .adoption { grid-template-columns: minmax(0, 1fr); }
+  .archive { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 720px) {
+  body { padding-left: 14px; padding-right: 14px; }
+  .masthead { grid-template-columns: minmax(0, 1fr); }
+  .masthead__stamp { text-align: left; }
+  .masthead__kinds { justify-content: flex-start; }
+  .scrub__head { flex-direction: column; gap: 6px; align-items: flex-start; }
+  .scrub__label {
+    width: 64px;
+    font-size: 10px;
+    letter-spacing: .04em;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+  }
+  .scrub__label[data-edge="first"] { text-align: left; }
+  .scrub__label[data-edge="last"] { text-align: right; }
+  .btn--play { width: 100%; }
+  .addrow { grid-template-columns: minmax(0, 1fr); }
+  .archive__row { grid-template-columns: 10px minmax(0, 1fr); }
+  .archive__label { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para o painel</a>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">IA em escala · painel local</p>
+      <h1 class="masthead__title">Quantas pessoas já usam IA generativa</h1>
+    </div>
+    <div class="masthead__stamp">
+      <p class="eyebrow">Momento selecionado</p>
+      <p class="masthead__period" id="stamp-period">—</p>
+      <p class="meta" id="stamp-meta">—</p>
+      <ul class="masthead__kinds">
+        <li><span class="tag tag--observado">Observado</span></li>
+        <li><span class="tag tag--sinal">Sinal de plataforma</span></li>
+        <li><span class="tag tag--estimado">Estimado</span></li>
+        <li><span class="tag tag--arquivo">Retrato histórico</span></li>
+      </ul>
+    </div>
+  </header>
+
+  <section class="scrub" aria-labelledby="scrub-title">
+    <div class="scrub__head">
+      <div>
+        <p class="eyebrow" id="scrub-title">Linha do tempo</p>
+        <p class="meta" id="scrub-hint">Arraste, ou use as setas do teclado, Home e End.</p>
+      </div>
+      <button type="button" class="btn btn--play" id="play" aria-pressed="false">Percorrer</button>
+    </div>
+    <div class="scrub__body">
+      <div>
+        <div class="scrub__track">
+          <div class="scrub__rail" aria-hidden="true">
+            <div class="scrub__fill" id="scrub-fill"></div>
+          </div>
+          <ul class="scrub__notches" id="scrub-notches" aria-hidden="true"></ul>
+          <input type="range" class="scrub__input" id="scrub-input" min="0" max="0" step="1" value="0"
+                 aria-label="Momento da linha do tempo">
+        </div>
+        <ul class="scrub__labels" id="scrub-labels" aria-hidden="true"></ul>
+      </div>
+    </div>
+  </section>
+
+  <main id="painel" class="board">
+
+    <article class="panel" aria-labelledby="adocao-title">
+      <div class="panel__head">
+        <div>
+          <p class="eyebrow">Adoção global</p>
+          <h2 class="panel__title" id="adocao-title">Parcela da população em idade de trabalhar</h2>
+        </div>
+        <button type="button" class="btn" id="scenario-toggle" aria-pressed="false">Cenário ilustrativo</button>
+      </div>
+
+      <div class="adoption">
+        <figure class="grid-figure">
+          <svg id="dot-grid" viewBox="0 0 1000 625" role="img" aria-labelledby="dot-grid-title">
+            <title id="dot-grid-title">Grade de mil pontos</title>
+            <defs>
+              <pattern id="p-neutral" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="18" height="18" rx="4" fill="#29312e"/></pattern>
+              <pattern id="p-green" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="18" height="18" rx="4" fill="#5ee6a8"/></pattern>
+              <pattern id="p-yellow" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="18" height="18" rx="4" fill="#f2c14e"/></pattern>
+              <pattern id="p-red" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="18" height="18" rx="4" fill="#ff6b67"/></pattern>
+            </defs>
+            <rect width="1000" height="625" fill="url(#p-neutral)"/>
+            <g id="dot-fill"></g>
+          </svg>
+          <figcaption class="grid-figure__caption" id="grid-caption">Cada ponto = 0,1% · 1.000 pontos no total</figcaption>
+        </figure>
+
+        <div class="readout">
+          <p class="readout__value" id="adoption-value">—</p>
+          <p class="readout__unit" id="adoption-unit">—</p>
+          <div class="readout__tags" id="adoption-tags"></div>
+          <ul class="parts" id="adoption-parts" hidden></ul>
+          <div class="readout__prov">
+            <p class="meta" id="adoption-prov">—</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="series">
+        <p class="eyebrow">Série publicada</p>
+        <svg id="series-chart" viewBox="0 0 720 240" role="img" aria-labelledby="series-title">
+          <title id="series-title">Série da adoção global ao longo do tempo</title>
+        </svg>
+        <div class="series__foot">
+          <p class="meta" id="series-delta">—</p>
+          <p class="meta" id="series-gap">—</p>
+        </div>
+      </div>
+    </article>
+
+    <aside class="panel" aria-labelledby="plataformas-title">
+      <div class="panel__head">
+        <div>
+          <p class="eyebrow">Sinais das plataformas</p>
+          <h2 class="panel__title" id="plataformas-title">Escala declarada por empresa</h2>
+        </div>
+      </div>
+
+      <div class="warnbar">
+        <p class="warnbar__mark">NÃO SOMAR</p>
+        <p class="warnbar__text">Definições, escopos e períodos diferentes. Uma mesma pessoa pode aparecer em mais de um número, e não existe deduplicação pública entre plataformas.</p>
+      </div>
+
+      <ul class="signals" id="signals"></ul>
+    </aside>
+
+    <article class="panel panel--archive" aria-labelledby="retrato-title">
+      <div class="panel__head">
+        <div>
+          <p class="eyebrow">Retrato histórico</p>
+          <h2 class="panel__title" id="retrato-title">O gráfico viral de fevereiro de 2026</h2>
+        </div>
+        <span class="tag tag--arquivo" id="archive-state">Arquivo</span>
+      </div>
+
+      <div class="archive" id="archive" data-state="fora">
+        <div>
+          <p class="note" id="archive-frame">—</p>
+          <p class="meta" id="archive-caveat" style="margin-top:14px">—</p>
+        </div>
+        <ul class="archive__rows" id="archive-rows"></ul>
+      </div>
+    </article>
+
+  </main>
+
+  <div class="tools">
+
+    <details class="drawer" id="drawer-editor">
+      <summary class="drawer__summary">Editor de dados <span class="drawer__hint">valores, momentos, exportar e importar</span></summary>
+      <div class="drawer__body">
+
+        <section class="editor__section">
+          <h3 class="editor__title">Momentos da linha do tempo</h3>
+          <p class="note">Cada momento é um período de referência documentado. Remover um momento também remove os valores presos a ele.</p>
+          <div class="tablewrap">
+            <table id="tbl-timeline">
+              <thead><tr><th style="width:38%">Rótulo</th><th style="width:22%">Rótulo curto</th><th style="width:22%">Data de referência</th><th>Ação</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="addrow">
+            <label class="field"><span class="field__label">Rótulo</span><input type="text" id="new-label" placeholder="3º trimestre de 2026"></label>
+            <label class="field"><span class="field__label">Rótulo curto</span><input type="text" id="new-short" placeholder="T3 · 2026"></label>
+            <label class="field"><span class="field__label">Data</span><input type="date" id="new-date"></label>
+            <button type="button" class="btn" id="add-step">Adicionar momento</button>
+          </div>
+        </section>
+
+        <section class="editor__section">
+          <h3 class="editor__title">Adoção global</h3>
+          <p class="note">Percentual da população de 15 a 64 anos. Deixe o valor vazio para dizer que não houve medição publicada naquele momento — o painel mostra a lacuna em vez de inventar continuidade.</p>
+          <div class="tablewrap">
+            <table id="tbl-adoption">
+              <thead><tr><th style="width:34%">Momento</th><th style="width:20%">Valor (%)</th><th style="width:22%">Natureza</th><th>Fonte</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="editor__section">
+          <h3 class="editor__title">Sinais das plataformas</h3>
+          <p class="note">Valores em milhões. Deixe vazio onde a empresa não publicou número naquele momento.</p>
+          <div class="tablewrap">
+            <table id="tbl-platforms">
+              <thead><tr><th style="width:34%">Sinal</th><th style="width:24%">Momento</th><th style="width:12%">Prefixo</th><th>Valor (milhões)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="editor__section">
+          <h3 class="editor__title">Cenário ilustrativo</h3>
+          <p class="note">Divisão editorial aproximada do total observado. As categorias se sobrepõem na realidade; foram forçadas a serem exclusivas apenas para desenhar a grade.</p>
+          <div class="tablewrap">
+            <table id="tbl-scenario">
+              <thead><tr><th style="width:52%">Parcela</th><th style="width:24%">Valor (%)</th><th>Momento</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="status" id="scenario-check"></p>
+        </section>
+
+        <section class="editor__section">
+          <h3 class="editor__title">Retrato histórico</h3>
+          <p class="note">Valores do gráfico viral original, preservados como referência. São texto livre porque o original trabalhava com faixas.</p>
+          <div class="tablewrap">
+            <table id="tbl-archive">
+              <thead><tr><th style="width:46%">Categoria</th><th>Valor exibido</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="editor__section">
+          <h3 class="editor__title">Arquivo de dados</h3>
+          <p class="note">As edições ficam neste navegador. Exporte para levar o conjunto para outro lugar.</p>
+          <div class="iobar">
+            <button type="button" class="btn" id="export-json">Exportar JSON</button>
+            <button type="button" class="btn" id="copy-json">Copiar JSON</button>
+            <button type="button" class="btn" id="import-pick">Importar arquivo</button>
+            <input type="file" id="import-file" accept="application/json,.json" hidden>
+            <button type="button" class="btn" id="reset-data">Restaurar dados originais</button>
+            <button type="button" class="btn" id="erase-local-data">Apagar dados deste navegador</button>
+          </div>
+          <p class="status" id="io-status" role="status"></p>
+          <label class="field" style="margin-top:16px">
+            <span class="field__label">Ou cole um JSON e aplique</span>
+            <textarea id="import-text" rows="5" placeholder="Cole aqui o conteúdo exportado"></textarea>
+          </label>
+          <div class="iobar">
+            <button type="button" class="btn" id="import-apply">Aplicar JSON colado</button>
+          </div>
+        </section>
+
+      </div>
+    </details>
+
+    <details class="drawer" id="drawer-sources">
+      <summary class="drawer__summary">Fontes e metodologia <span class="drawer__hint">o que cada número mede</span></summary>
+      <div class="drawer__body">
+        <ul class="sources" id="sources"></ul>
+        <div class="method" id="method"></div>
+      </div>
+    </details>
+
+  </div>
+
+  <footer class="pagefoot">
+    <p class="meta">Portátil: no file://, o localStorage pode variar entre navegadores; exporte JSON para transportar edições.</p><p class="meta">Painel local, sem servidor e sem rede. Abre direto pelo arquivo.</p>
+    <p class="meta" id="foot-updated">—</p>
+  </footer>
+
+</div>
+
+<script>
+/* IA em escala — painel local.
+   Sem rede, sem build, sem dependência. Os dados vivem aqui embutidos para que
+   o arquivo funcione ao ser aberto direto por file://. As edições do usuário
+   ficam em localStorage e podem ser exportadas em JSON. */
+
+'use strict';
+
+/* ==========================================================================
+   1. Dados originais — apenas pontos documentados em 00-FONTES-E-METODOLOGIA.md
+      e na NOTA-METODOLOGICA.md. Nenhum valor foi interpolado ou inventado.
+   ========================================================================== */
+
+var DEFAULT_DATA = {
+  schema: 'ia-em-escala/1',
+  updatedAt: '24 de agosto de 2026',
+
+  timeline: [
+    { id: 's2-2025', label: '2º semestre de 2025', short: 'S2 · 2025', date: '2025-12-31' },
+    { id: 'fev-2026', label: 'Fevereiro de 2026', short: 'fev · 2026', date: '2026-02-27' },
+    { id: 't1-2026', label: '1º trimestre de 2026', short: 'T1 · 2026', date: '2026-03-31' },
+    { id: 'abr-2026', label: 'Abril de 2026', short: 'abr · 2026', date: '2026-04-08' }
+  ],
+
+  adoption: {
+    unit: 'da população mundial de 15 a 64 anos usou alguma ferramenta de IA generativa no período.',
+    points: [
+      { at: 's2-2025', value: 16.3, kind: 'observado', source: 'ms-diffusion' },
+      { at: 'fev-2026', value: null, kind: 'observado', source: '' },
+      { at: 't1-2026', value: 17.8, kind: 'observado', source: 'ms-diffusion' },
+      { at: 'abr-2026', value: null, kind: 'observado', source: '' }
+    ]
+  },
+
+  scenario: {
+    at: 't1-2026',
+    title: 'Cenário ilustrativo',
+    caveat: 'O total colorido vem da medição observada. A divisão interna é uma aproximação editorial calibrada pelos números públicos das plataformas. As três parcelas foram forçadas a serem exclusivas apenas para desenhar a grade.',
+    parts: [
+      { id: 'geral', label: 'Uso geral, gratuito ou não classificado', value: 16.0, role: 'green' },
+      { id: 'pago', label: 'Assinatura paga', value: 1.1, role: 'yellow' },
+      { id: 'codigo', label: 'Assistência de código', value: 0.7, role: 'red' }
+    ]
+  },
+
+  platforms: [
+    {
+      id: 'chatgpt-semanais',
+      label: 'usuários semanais do ChatGPT',
+      scope: 'Planos individuais, gratuitos e pagos',
+      role: 'green',
+      source: 'openai-enterprise',
+      points: [
+        { at: 's2-2025', value: null, qualifier: '' },
+        { at: 'fev-2026', value: null, qualifier: '' },
+        { at: 't1-2026', value: null, qualifier: '' },
+        { at: 'abr-2026', value: 900, qualifier: '' }
+      ]
+    },
+    {
+      id: 'chatgpt-assinantes',
+      label: 'assinantes consumidores do ChatGPT',
+      scope: 'Assinaturas pagas individuais',
+      role: 'yellow',
+      source: 'openai-scaling',
+      points: [
+        { at: 's2-2025', value: null, qualifier: '' },
+        { at: 'fev-2026', value: 50, qualifier: '+' },
+        { at: 't1-2026', value: null, qualifier: '' },
+        { at: 'abr-2026', value: null, qualifier: '' }
+      ]
+    },
+    {
+      id: 'chatgpt-empresas',
+      label: 'usuários empresariais pagantes do ChatGPT',
+      scope: 'Assentos pagos em empresas',
+      role: 'yellow',
+      source: 'openai-scaling',
+      points: [
+        { at: 's2-2025', value: null, qualifier: '' },
+        { at: 'fev-2026', value: 9, qualifier: '+' },
+        { at: 't1-2026', value: null, qualifier: '' },
+        { at: 'abr-2026', value: null, qualifier: '' }
+      ]
+    },
+    {
+      id: 'copilot',
+      label: 'usuários do GitHub Copilot',
+      scope: 'Assistência de programação',
+      role: 'red',
+      source: 'ms-fy2026',
+      note: 'Referência da Microsoft: primeiro trimestre do ano fiscal de 2026. O dossiê não registra a data exata desse período, então o valor foi ancorado no momento mais antigo da linha do tempo.',
+      points: [
+        { at: 's2-2025', value: 26, qualifier: '+' },
+        { at: 'fev-2026', value: null, qualifier: '' },
+        { at: 't1-2026', value: null, qualifier: '' },
+        { at: 'abr-2026', value: null, qualifier: '' }
+      ]
+    }
+  ],
+
+  archive: {
+    at: 'fev-2026',
+    frame: '2.500 pontos representavam cerca de 8,1 bilhões de pessoas, um ponto para cada 3,2 milhões. As categorias e os valores abaixo reproduzem o gráfico original, sem corrigir suas limitações.',
+    caveat: 'Parâmetro histórico, não atualização estatística. Os grupos não são uma medição global exclusiva e podem se sobrepor.',
+    rows: [
+      { label: '“nunca usou IA”', display: '≈ 6,8 bi', role: 'neutral' },
+      { label: 'chatbot gratuito', display: '≈ 1,3 bi', role: 'green' },
+      { label: 'paga por IA', display: '≈ 15–25 mi', role: 'yellow' },
+      { label: 'usa IA para código', display: '≈ 2–5 mi', role: 'red' }
+    ]
+  },
+
+  sources: [
+    {
+      id: 'ms-diffusion',
+      name: 'Microsoft AI Economy Institute — Global AI Diffusion',
+      detail: 'Atualização para o primeiro trimestre de 2026, publicada em maio de 2026. Telemetria agregada e anonimizada, ajustada por participação de sistemas e dispositivos, penetração da internet e população de cada país. Comparação anterior: 16,3% no segundo semestre de 2025.',
+      url: 'https://news.microsoft.com/source/emea/2026/05/new-microsoft-data-ai-adoption-continues-to-rise-switzerland-remains-above-average/'
+    },
+    {
+      id: 'openai-enterprise',
+      name: 'OpenAI — “The next phase of enterprise AI”',
+      detail: '8 de abril de 2026. Usuários semanais do ChatGPT; não equivale a assinantes pagos.',
+      url: 'https://openai.com/index/next-phase-of-enterprise-ai/'
+    },
+    {
+      id: 'openai-scaling',
+      name: 'OpenAI — “Scaling AI for everyone”',
+      detail: '27 de fevereiro de 2026. Mais de 50 milhões de assinaturas pagas de consumidores e mais de 9 milhões de usuários empresariais pagantes.',
+      url: 'https://openai.com/index/scaling-ai-for-everyone/'
+    },
+    {
+      id: 'ms-fy2026',
+      name: 'Microsoft — resultados do primeiro trimestre do ano fiscal de 2026',
+      detail: 'Usuários do GitHub Copilot. Não representa todo o universo de ferramentas de programação com IA.',
+      url: 'https://www.microsoft.com/en-us/investor/events/fy-2026/earnings-fy-2026-q1'
+    },
+    {
+      id: 'un-wpp',
+      name: 'Nações Unidas — World Population Prospects 2024',
+      detail: 'Usado apenas na verificação do gráfico viral original. As peças atuais evitam converter a taxa em total absoluto, porque o denominador da Microsoft é a população de 15 a 64 anos.',
+      url: 'https://www.un.org/development/desa/pd/world-population-prospects-2024'
+    }
+  ],
+
+  method: [
+    { title: 'A grade', text: 'Mil pontos representam a população em idade de trabalhar. Cada ponto vale 0,1%; 178 pontos valem 17,8%.' },
+    { title: 'O que a taxa não diz', text: '“Não identificado como usuário no período” não significa “nunca usou IA”.' },
+    { title: 'Por que os sinais não somam', text: 'Os números das plataformas têm definições e períodos diferentes. Uma pessoa pode estar ao mesmo tempo entre usuários semanais, assinantes e usuários de programação, e não existe deduplicação pública entre plataformas.' },
+    { title: 'Por que há lacunas', text: 'A linha do tempo só marca período com publicação. Onde não houve número novo, o painel repete a última medição e diz que a repetiu, em vez de desenhar uma curva contínua que ninguém mediu.' }
+  ]
+};
+
+/* ==========================================================================
+   2. Estado
+   ========================================================================== */
+
+var STORE_KEY = 'ia-em-escala/painel/v1';
+var COLS = 40, ROWS = 25, CELL = 25, TOTAL_DOTS = COLS * ROWS;
+var ROLE_COLOR = { green: '#5ee6a8', yellow: '#f2c14e', red: '#ff6b67', neutral: '#29312e' };
+var ROLE_PATTERN = { green: 'url(#p-green)', yellow: 'url(#p-yellow)', red: 'url(#p-red)' };
+var KIND_LABEL = { observado: 'Observado', estimado: 'Estimado', sinal: 'Sinal de plataforma' };
+
+var data = null;
+var cursor = 0;
+var scenarioOn = false;
+var playTimer = null;
+var storageOk = true;
+
+/* ==========================================================================
+   3. Utilitários
+   ========================================================================== */
+
+function $(id) { return document.getElementById(id); }
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function el(tag, cls, text) {
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = text;
+  return n;
+}
+
+var SVGNS = 'http://www.w3.org/2000/svg';
+function svg(tag, attrs) {
+  var n = document.createElementNS(SVGNS, tag);
+  for (var k in attrs) if (attrs[k] !== undefined && attrs[k] !== null) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function fmtPct(v) {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+}
+
+function fmtMillions(v, qualifier) {
+  var q = qualifier || '';
+  if (v >= 1000) {
+    var bi = v / 1000;
+    return q + bi.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + (bi === 1 ? ' bilhão' : ' bilhões');
+  }
+  return q + v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + (v === 1 ? ' milhão' : ' milhões');
+}
+
+function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+function stepIndex(id) {
+  for (var i = 0; i < data.timeline.length; i++) if (data.timeline[i].id === id) return i;
+  return -1;
+}
+
+function stepById(id) {
+  var i = stepIndex(id);
+  return i < 0 ? null : data.timeline[i];
+}
+
+function sourceById(id) {
+  for (var i = 0; i < data.sources.length; i++) if (data.sources[i].id === id) return data.sources[i];
+  return null;
+}
+
+/* Último ponto com valor cujo momento é anterior ou igual ao cursor. */
+function resolveAt(points, upTo) {
+  var best = null, bestIdx = -1;
+  for (var i = 0; i < points.length; i++) {
+    var p = points[i];
+    if (!isNum(p.value)) continue;
+    var idx = stepIndex(p.at);
+    if (idx < 0 || idx > upTo) continue;
+    if (idx > bestIdx) { bestIdx = idx; best = p; }
+  }
+  return best ? { point: best, index: bestIdx, current: bestIdx === upTo } : null;
+}
+
+/* Retângulos de uma corrida de pontos na grade, preenchida de baixo para cima. */
+function dotRects(start, count) {
+  var out = [], i = Math.max(0, start), left = Math.min(count, TOTAL_DOTS - i);
+  while (left > 0) {
+    var row = Math.floor(i / COLS), col = i % COLS;
+    var take = Math.min(COLS - col, left);
+    out.push({ x: col * CELL, y: (ROWS - 1 - row) * CELL, w: take * CELL, h: CELL });
+    i += take;
+    left -= take;
+  }
+  return out;
+}
+
+function dotsFromPct(v) {
+  return Math.max(0, Math.min(TOTAL_DOTS, Math.round(v * 10)));
+}
+
+/* ==========================================================================
+   4. Persistência
+   ========================================================================== */
+
+function save() {
+  if (!storageOk) return;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  } catch (e) {
+    storageOk = false;
+    setStatus('io-status', 'Este navegador não guardou as edições. Exporte o JSON para não perder o trabalho.', 'erro');
+  }
+}
+
+function load() {
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return clone(DEFAULT_DATA);
+    return normalize(JSON.parse(raw));
+  } catch (e) {
+    storageOk = false;
+    return clone(DEFAULT_DATA);
+  }
+}
+
+/* Aceita um JSON parcial ou antigo sem quebrar: completa o que falta a partir
+   do original e descarta referências a momentos que não existem mais. */
+function normalize(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('formato inválido');
+  var base = clone(DEFAULT_DATA);
+  var out = clone(DEFAULT_DATA);
+
+  if (Array.isArray(input.timeline) && input.timeline.length) {
+    out.timeline = input.timeline
+      .filter(function (s) { return s && typeof s.id === 'string' && s.id; })
+      .map(function (s) {
+        return {
+          id: String(s.id),
+          label: String(s.label || s.id),
+          short: String(s.short || s.label || s.id),
+          date: /^\d{4}-\d{2}-\d{2}$/.test(s.date) ? s.date : '2026-01-01'
+        };
+      });
+    if (!out.timeline.length) out.timeline = base.timeline;
+  }
+  var ids = out.timeline.map(function (s) { return s.id; });
+  var known = function (id) { return ids.indexOf(id) >= 0; };
+  var num = function (v) { return isNum(v) ? v : (typeof v === 'string' && v.trim() !== '' && isFinite(Number(v)) ? Number(v) : null); };
+
+  if (input.adoption && typeof input.adoption === 'object') {
+    if (typeof input.adoption.unit === 'string') out.adoption.unit = input.adoption.unit;
+    if (Array.isArray(input.adoption.points)) {
+      out.adoption.points = input.adoption.points
+        .filter(function (p) { return p && known(p.at); })
+        .map(function (p) {
+          return {
+            at: p.at,
+            value: num(p.value),
+            kind: KIND_LABEL[p.kind] ? p.kind : 'observado',
+            source: typeof p.source === 'string' ? p.source : ''
+          };
+        });
+    }
+  }
+  // Descarta pontos presos a momentos que não existem neste conjunto e
+  // completa os que faltam, para que toda tabela tenha uma linha por momento.
+  out.adoption.points = out.adoption.points.filter(function (p) { return known(p.at); });
+  ids.forEach(function (id) {
+    if (!out.adoption.points.some(function (p) { return p.at === id; })) {
+      out.adoption.points.push({ at: id, value: null, kind: 'observado', source: '' });
+    }
+  });
+
+  if (input.scenario && typeof input.scenario === 'object') {
+    var sc = input.scenario;
+    out.scenario.at = known(sc.at) ? sc.at : ids[ids.length - 1];
+    if (typeof sc.caveat === 'string') out.scenario.caveat = sc.caveat;
+    if (Array.isArray(sc.parts) && sc.parts.length) {
+      out.scenario.parts = sc.parts.map(function (p, i) {
+        var ref = base.scenario.parts[i] || base.scenario.parts[0];
+        return {
+          id: String(p.id || ref.id),
+          label: String(p.label || ref.label),
+          value: num(p.value) === null ? 0 : num(p.value),
+          role: ROLE_PATTERN[p.role] ? p.role : ref.role
+        };
+      });
+    }
+  } else if (!known(out.scenario.at)) {
+    out.scenario.at = ids[ids.length - 1];
+  }
+  if (!known(out.scenario.at)) out.scenario.at = ids[ids.length - 1];
+
+  if (Array.isArray(input.platforms) && input.platforms.length) {
+    out.platforms = input.platforms.map(function (pl, i) {
+      var ref = base.platforms[i] || base.platforms[0];
+      return {
+        id: String(pl.id || ref.id),
+        label: String(pl.label || ref.label),
+        scope: String(pl.scope || ''),
+        role: ROLE_COLOR[pl.role] ? pl.role : ref.role,
+        source: typeof pl.source === 'string' ? pl.source : '',
+        note: typeof pl.note === 'string' ? pl.note : '',
+        points: Array.isArray(pl.points)
+          ? pl.points.filter(function (p) { return p && known(p.at); })
+              .map(function (p) { return { at: p.at, value: num(p.value), qualifier: String(p.qualifier || '') }; })
+          : []
+      };
+    });
+  }
+  out.platforms.forEach(function (pl) {
+    pl.points = pl.points.filter(function (p) { return known(p.at); });
+    ids.forEach(function (id) {
+      if (!pl.points.some(function (p) { return p.at === id; })) pl.points.push({ at: id, value: null, qualifier: '' });
+    });
+    pl.points.sort(function (a, b) { return stepIndexIn(ids, a.at) - stepIndexIn(ids, b.at); });
+  });
+
+  if (input.archive && typeof input.archive === 'object') {
+    var ar = input.archive;
+    out.archive.at = known(ar.at) ? ar.at : ids[0];
+    if (typeof ar.frame === 'string') out.archive.frame = ar.frame;
+    if (typeof ar.caveat === 'string') out.archive.caveat = ar.caveat;
+    if (Array.isArray(ar.rows) && ar.rows.length) {
+      out.archive.rows = ar.rows.map(function (r, i) {
+        var ref = base.archive.rows[i] || base.archive.rows[0];
+        return {
+          label: String(r.label || ref.label),
+          display: String(r.display || ref.display),
+          role: ROLE_COLOR[r.role] ? r.role : ref.role
+        };
+      });
+    }
+  }
+  if (!known(out.archive.at)) out.archive.at = ids[0];
+
+  if (typeof input.updatedAt === 'string') out.updatedAt = input.updatedAt;
+  return out;
+}
+
+function stepIndexIn(ids, id) { return ids.indexOf(id); }
+
+/* ==========================================================================
+   5. Render — cabeçalho e linha do tempo
+   ========================================================================== */
+
+function renderScrub() {
+  var input = $('scrub-input');
+  var n = data.timeline.length;
+  input.max = String(Math.max(0, n - 1));
+  input.value = String(cursor);
+  input.setAttribute('aria-valuetext', data.timeline[cursor] ? data.timeline[cursor].label : '');
+  input.disabled = n < 2;
+
+  var pct = n > 1 ? (cursor / (n - 1)) * 100 : 0;
+  $('scrub-fill').style.width = pct + '%';
+
+  var notches = $('scrub-notches');
+  var labels = $('scrub-labels');
+  notches.textContent = '';
+  labels.textContent = '';
+
+  data.timeline.forEach(function (s, i) {
+    var p = n > 1 ? (i / (n - 1)) * 100 : 0;
+    var dot = el('li', 'scrub__notch');
+    dot.style.left = p + '%';
+    dot.setAttribute('data-state', i === cursor ? 'current' : (i < cursor ? 'past' : 'future'));
+    notches.appendChild(dot);
+
+    var lab = el('li', 'scrub__label', s.short || s.label);
+    lab.style.left = p + '%';
+    lab.setAttribute('data-state', i === cursor ? 'current' : 'idle');
+    if (i === 0) lab.setAttribute('data-edge', 'first');
+    if (i === n - 1) lab.setAttribute('data-edge', 'last');
+    labels.appendChild(lab);
+  });
+
+  $('play').disabled = n < 2;
+}
+
+function renderStamp() {
+  var step = data.timeline[cursor];
+  $('stamp-period').textContent = step ? step.label : '—';
+  var kinds = [];
+  var ad = resolveAt(data.adoption.points, cursor);
+  if (ad) kinds.push(ad.current ? 'medição do próprio período' : 'última medição repetida');
+  if (scenarioOn) kinds.push('cenário ilustrativo ligado');
+  if (data.archive.at === (step && step.id)) kinds.push('gráfico viral neste período');
+  $('stamp-meta').textContent = (step ? 'referência ' + step.date.split('-').reverse().join('/') : '') +
+    (kinds.length ? ' · ' + kinds.join(' · ') : '');
+}
+
+/* ==========================================================================
+   6. Render — adoção global
+   ========================================================================== */
+
+function renderAdoption() {
+  var step = data.timeline[cursor];
+  var res = resolveAt(data.adoption.points, cursor);
+  var fill = $('dot-fill');
+  var tags = $('adoption-tags');
+  var partsList = $('adoption-parts');
+  fill.textContent = '';
+  tags.textContent = '';
+  partsList.textContent = '';
+
+  var scenarioHere = !!step && data.scenario.at === step.id;
+  var toggle = $('scenario-toggle');
+  toggle.disabled = !scenarioHere;
+  toggle.setAttribute('aria-pressed', String(scenarioOn && scenarioHere));
+  toggle.title = scenarioHere
+    ? 'Mostra a divisão editorial aproximada dentro do total observado'
+    : 'O cenário ilustrativo só existe para ' + (stepById(data.scenario.at) || { label: '—' }).label;
+  if (!scenarioHere) scenarioOn = false;
+
+  if (!res) {
+    $('adoption-value').textContent = 'Sem medição publicada';
+    $('adoption-value').setAttribute('data-state', 'vazio');
+    $('adoption-unit').textContent = 'Nenhuma medição de adoção global foi publicada até este momento da linha do tempo.';
+    $('adoption-prov').textContent = 'A grade fica vazia de propósito. O painel não estima o que não foi medido.';
+    $('grid-caption').textContent = 'Cada ponto = 0,1% · 1.000 pontos no total';
+    partsList.hidden = true;
+    return;
+  }
+
+  var value = res.point.value;
+  $('adoption-value').textContent = fmtPct(value);
+  $('adoption-value').removeAttribute('data-state');
+  $('adoption-unit').textContent = data.adoption.unit;
+
+  var kind = res.point.kind || 'observado';
+  tags.appendChild(el('span', 'tag tag--' + kind, KIND_LABEL[kind] || kind));
+  if (scenarioOn) tags.appendChild(el('span', 'tag tag--estimado', 'Divisão estimada'));
+
+  var src = sourceById(res.point.source);
+  var provStep = data.timeline[res.index];
+  var prov = res.current
+    ? 'Medição publicada para este período.'
+    : 'Nenhuma medição nova aqui. Exibindo a última publicada, de ' + (provStep ? provStep.label : '—') + '.';
+  if (src) prov += ' Fonte: ' + src.name + '.';
+  $('adoption-prov').textContent = prov;
+
+  var n = dotsFromPct(value);
+
+  if (scenarioOn) {
+    var start = 0, used = 0;
+    partsList.hidden = false;
+    data.scenario.parts.forEach(function (part) {
+      var count = Math.min(dotsFromPct(part.value), TOTAL_DOTS - start);
+      dotRects(start, count).forEach(function (r) {
+        fill.appendChild(svg('rect', { x: r.x, y: r.y, width: r.w, height: r.h, fill: ROLE_PATTERN[part.role] || ROLE_PATTERN.green }));
+      });
+      start += count;
+      used += part.value;
+
+      var li = el('li', 'parts__item');
+      var dot = el('span', 'parts__dot');
+      dot.style.background = ROLE_COLOR[part.role] || ROLE_COLOR.green;
+      li.appendChild(dot);
+      li.appendChild(el('span', null, part.label));
+      li.appendChild(el('span', 'parts__value', fmtPct(part.value)));
+      partsList.appendChild(li);
+    });
+    var diff = Math.round((used - value) * 100) / 100;
+    var li2 = el('li', 'parts__item');
+    li2.appendChild(el('span', 'parts__dot'));
+    li2.appendChild(el('span', null, Math.abs(diff) < 0.05
+      ? 'As parcelas fecham o total observado.'
+      : 'As parcelas somam ' + fmtPct(used) + ', e o total observado é ' + fmtPct(value) + '.'));
+    li2.appendChild(el('span', 'parts__value', (diff > 0 ? '+' : '') + fmtPct(diff)));
+    partsList.appendChild(li2);
+
+    $('grid-caption').textContent = 'Divisão aproximada · ' + start + ' de 1.000 pontos coloridos · categorias podem se sobrepor';
+  } else {
+    partsList.hidden = true;
+    dotRects(0, n).forEach(function (r) {
+      fill.appendChild(svg('rect', { x: r.x, y: r.y, width: r.w, height: r.h, fill: ROLE_PATTERN.green }));
+    });
+    $('grid-caption').textContent = 'Cada ponto = 0,1% · ' + n + ' de 1.000 pontos';
+  }
+}
+
+/* ==========================================================================
+   7. Render — série publicada
+   ========================================================================== */
+
+function renderSeries() {
+  var chart = $('series-chart');
+  // Preserva o <title> acessível e limpa só o desenho anterior.
+  Array.prototype.slice.call(chart.children).forEach(function (c) {
+    if (c.tagName.toLowerCase() !== 'title') chart.removeChild(c);
+  });
+
+  var W = 720, H = 240, ML = 46, MR = 18, MT = 18, MB = 40;
+  var iw = W - ML - MR, ih = H - MT - MB;
+
+  var pts = data.adoption.points
+    .filter(function (p) { return isNum(p.value) && stepIndex(p.at) >= 0; })
+    .map(function (p) { return { at: p.at, idx: stepIndex(p.at), value: p.value, kind: p.kind }; })
+    .sort(function (a, b) { return a.idx - b.idx; });
+
+  var n = data.timeline.length;
+  var xOf = function (idx) { return n > 1 ? ML + (idx / (n - 1)) * iw : ML + iw / 2; };
+
+  var maxV = pts.reduce(function (m, p) { return Math.max(m, p.value); }, 0);
+  var yMax = Math.max(25, Math.ceil((maxV * 1.35) / 5) * 5);
+  var yOf = function (v) { return MT + ih - (v / yMax) * ih; };
+
+  var g = svg('g', {});
+
+  // Eixo Y a partir do zero: a variação real fica pequena, e é assim mesmo.
+  for (var v = 0; v <= yMax; v += 5) {
+    g.appendChild(svg('line', { x1: ML, y1: yOf(v), x2: W - MR, y2: yOf(v), stroke: '#1c2521', 'stroke-width': 1 }));
+    var t = svg('text', { x: ML - 10, y: yOf(v) + 4, fill: '#8b9791', 'font-size': 11, 'text-anchor': 'end', 'font-family': 'Cascadia Mono, Consolas, ui-monospace, monospace' });
+    t.textContent = v + '%';
+    g.appendChild(t);
+  }
+
+  // Marcas dos momentos no eixo X.
+  data.timeline.forEach(function (s, i) {
+    var x = xOf(i);
+    g.appendChild(svg('line', { x1: x, y1: MT + ih, x2: x, y2: MT + ih + 6, stroke: '#2a342f', 'stroke-width': 1 }));
+    var lb = svg('text', { x: x, y: MT + ih + 24, fill: i === cursor ? '#f3f7f5' : '#8b9791', 'font-size': 10.5, 'text-anchor': i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle'), 'font-family': 'Cascadia Mono, Consolas, ui-monospace, monospace' });
+    lb.textContent = s.short || s.label;
+    g.appendChild(lb);
+  });
+
+  // Cursor.
+  g.appendChild(svg('line', { x1: xOf(cursor), y1: MT - 6, x2: xOf(cursor), y2: MT + ih, stroke: '#5ee6a8', 'stroke-width': 1, 'stroke-opacity': .45 }));
+
+  // Ligações tracejadas: o painel se recusa a desenhar curva onde não houve medição.
+  for (var i = 1; i < pts.length; i++) {
+    var a = pts[i - 1], b = pts[i];
+    g.appendChild(svg('line', {
+      x1: xOf(a.idx), y1: yOf(a.value), x2: xOf(b.idx), y2: yOf(b.value),
+      stroke: '#5ee6a8', 'stroke-width': 1.5, 'stroke-opacity': .5, 'stroke-dasharray': '3 6'
+    }));
+    if (b.idx - a.idx > 1) {
+      var mid = svg('text', {
+        x: (xOf(a.idx) + xOf(b.idx)) / 2, y: (yOf(a.value) + yOf(b.value)) / 2 - 12,
+        fill: '#8b9791', 'font-size': 10, 'text-anchor': 'middle',
+        'font-family': 'Cascadia Mono, Consolas, ui-monospace, monospace'
+      });
+      mid.textContent = 'sem medição no intervalo';
+      g.appendChild(mid);
+    }
+  }
+
+  // Pontos publicados.
+  pts.forEach(function (p) {
+    var active = p.idx <= cursor;
+    g.appendChild(svg('circle', {
+      cx: xOf(p.idx), cy: yOf(p.value), r: 5.5,
+      fill: active ? '#5ee6a8' : '#0c1210',
+      stroke: '#5ee6a8', 'stroke-width': 2, 'stroke-opacity': active ? 1 : .5
+    }));
+    var lbl = svg('text', {
+      x: xOf(p.idx), y: yOf(p.value) - 15,
+      fill: active ? '#f3f7f5' : '#8b9791', 'font-size': 14, 'text-anchor': 'middle', 'font-weight': 700,
+      'font-family': 'Bahnschrift, DIN Alternate, Segoe UI, system-ui, sans-serif'
+    });
+    lbl.textContent = fmtPct(p.value);
+    g.appendChild(lbl);
+  });
+
+  if (!pts.length) {
+    var empty = svg('text', {
+      x: ML + iw / 2, y: MT + ih / 2, fill: '#8b9791', 'font-size': 12, 'text-anchor': 'middle',
+      'font-family': 'Cascadia Mono, Consolas, ui-monospace, monospace'
+    });
+    empty.textContent = 'Nenhum valor de adoção preenchido.';
+    g.appendChild(empty);
+  }
+
+  chart.appendChild(g);
+
+  if (pts.length >= 2) {
+    var first = pts[0], last = pts[pts.length - 1];
+    var delta = Math.round((last.value - first.value) * 10) / 10;
+    $('series-delta').textContent = 'Variação entre os pontos publicados: ' +
+      (delta > 0 ? '+' : '') + delta.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) +
+      ' ponto percentual, de ' + fmtPct(first.value) + ' para ' + fmtPct(last.value) + '.';
+  } else if (pts.length === 1) {
+    $('series-delta').textContent = 'Um único valor publicado: ' + fmtPct(pts[0].value) + '. Não há variação a calcular.';
+  } else {
+    $('series-delta').textContent = 'Nenhum valor publicado na série.';
+  }
+
+  var gaps = data.timeline.length - pts.length;
+  $('series-gap').textContent = pts.length
+    ? gaps + (gaps === 1 ? ' momento da linha do tempo sem medição de adoção.' : ' momentos da linha do tempo sem medição de adoção.') +
+      ' O traço pontilhado marca a lacuna; não é uma curva medida.'
+    : '';
+}
+
+/* ==========================================================================
+   8. Render — sinais das plataformas
+   ========================================================================== */
+
+function renderSignals() {
+  var list = $('signals');
+  list.textContent = '';
+
+  data.platforms.forEach(function (pl) {
+    var res = resolveAt(pl.points, cursor);
+    var li = el('li', 'signal signal--' + pl.role);
+    li.setAttribute('data-state', res ? 'ativo' : 'pendente');
+    li.appendChild(el('span', 'signal__dot'));
+
+    var body = el('div');
+    if (res) {
+      body.appendChild(el('p', 'signal__value', fmtMillions(res.point.value, res.point.qualifier)));
+    } else {
+      body.appendChild(el('p', 'signal__value', 'sem número publicado até aqui'));
+    }
+    body.appendChild(el('p', 'signal__label', pl.label));
+
+    var bits = [];
+    if (pl.scope) bits.push(pl.scope);
+    if (res) {
+      var s = data.timeline[res.index];
+      bits.push(res.current ? 'divulgado neste período' : 'divulgado em ' + (s ? s.label : '—'));
+    }
+    var src = sourceById(pl.source);
+    if (src) bits.push(src.name);
+    body.appendChild(el('p', 'meta signal__scope', bits.join(' · ')));
+
+    if (pl.note && res) body.appendChild(el('p', 'meta signal__scope', pl.note));
+
+    li.appendChild(body);
+    list.appendChild(li);
+  });
+}
+
+/* ==========================================================================
+   9. Render — retrato histórico
+   ========================================================================== */
+
+function renderArchive() {
+  var step = data.timeline[cursor];
+  var here = !!step && data.archive.at === step.id;
+  var box = $('archive');
+  box.setAttribute('data-state', here ? 'dentro' : 'fora');
+  $('archive-state').textContent = here ? 'Retrato deste período' : 'Arquivo · ' + (stepById(data.archive.at) || { label: '—' }).label;
+  $('archive-frame').textContent = data.archive.frame;
+  $('archive-caveat').textContent = data.archive.caveat;
+
+  var rows = $('archive-rows');
+  rows.textContent = '';
+  data.archive.rows.forEach(function (r) {
+    var li = el('li', 'archive__row');
+    var sw = el('span', 'archive__swatch');
+    sw.style.background = ROLE_COLOR[r.role] || ROLE_COLOR.neutral;
+    if (r.role === 'neutral') sw.style.boxShadow = 'inset 0 0 0 1px #2a342f';
+    li.appendChild(sw);
+    li.appendChild(el('span', 'archive__value', r.display));
+    li.appendChild(el('span', 'archive__label', r.label));
+    rows.appendChild(li);
+  });
+}
+
+/* ==========================================================================
+   10. Render — fontes e metodologia
+   ========================================================================== */
+
+function renderSources() {
+  var list = $('sources');
+  list.textContent = '';
+  data.sources.forEach(function (s) {
+    var li = el('li', 'sources__item');
+    li.appendChild(el('p', 'sources__name', s.name));
+    li.appendChild(el('p', 'note', s.detail));
+    if (s.url) {
+      var p = el('p', 'meta');
+      var a = el('a', null, s.url);
+      a.href = s.url;
+      a.rel = 'noreferrer';
+      a.target = '_blank';
+      p.appendChild(a);
+      li.appendChild(p);
+    }
+    list.appendChild(li);
+  });
+
+  var m = $('method');
+  m.textContent = '';
+  data.method.forEach(function (it) {
+    var p = el('p', 'method__item');
+    p.appendChild(el('strong', null, it.title + '. '));
+    p.appendChild(document.createTextNode(it.text));
+    m.appendChild(p);
+  });
+
+  $('foot-updated').textContent = 'Dossiê atualizado em ' + data.updatedAt;
+}
+
+/* ==========================================================================
+   11. Render — orquestração
+   ========================================================================== */
+
+function renderViz() {
+  renderScrub();
+  renderStamp();
+  renderAdoption();
+  renderSeries();
+  renderSignals();
+  renderArchive();
+}
+
+function renderAll() {
+  renderViz();
+  renderSources();
+  renderEditor();
+}
+
+function setCursor(i) {
+  var max = data.timeline.length - 1;
+  cursor = Math.max(0, Math.min(max, i));
+  renderViz();
+}
+
+/* ==========================================================================
+   12. Editor
+   ========================================================================== */
+
+function tbody(id) {
+  var t = $(id).getElementsByTagName('tbody')[0];
+  t.textContent = '';
+  return t;
+}
+
+function cell(row) { var td = document.createElement('td'); row.appendChild(td); return td; }
+
+function textInput(value, onInput, placeholder) {
+  var i = document.createElement('input');
+  i.type = 'text';
+  i.value = value == null ? '' : value;
+  if (placeholder) i.placeholder = placeholder;
+  i.addEventListener('input', function () { onInput(i.value); });
+  return i;
+}
+
+function numberInput(value, onInput, step) {
+  var i = document.createElement('input');
+  i.type = 'number';
+  i.step = step || '0.1';
+  i.value = isNum(value) ? String(value) : '';
+  i.addEventListener('input', function () {
+    var raw = i.value.trim();
+    onInput(raw === '' ? null : (isFinite(Number(raw)) ? Number(raw) : null));
+  });
+  return i;
+}
+
+function selectInput(options, value, onChange) {
+  var s = document.createElement('select');
+  options.forEach(function (o) {
+    var op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    if (o.value === value) op.selected = true;
+    s.appendChild(op);
+  });
+  s.addEventListener('change', function () { onChange(s.value); });
+  return s;
+}
+
+function stepOptions() {
+  return data.timeline.map(function (s) { return { value: s.id, label: s.label }; });
+}
+
+function sourceOptions() {
+  return [{ value: '', label: 'sem fonte' }].concat(
+    data.sources.map(function (s) { return { value: s.id, label: s.name }; })
+  );
+}
+
+function touch() { save(); renderViz(); }
+
+function renderEditor() {
+  /* --- momentos --- */
+  var tb = tbody('tbl-timeline');
+  data.timeline.forEach(function (s, i) {
+    var tr = document.createElement('tr');
+    cell(tr).appendChild(textInput(s.label, function (v) { s.label = v; touch(); }));
+    cell(tr).appendChild(textInput(s.short, function (v) { s.short = v; touch(); }));
+    var d = document.createElement('input');
+    d.type = 'date';
+    d.value = s.date;
+    d.addEventListener('change', function () {
+      if (d.value) { s.date = d.value; sortTimeline(s.id); save(); renderAll(); }
+    });
+    cell(tr).appendChild(d);
+    var td = cell(tr);
+    var rm = el('button', 'rowbtn', 'Remover');
+    rm.type = 'button';
+    rm.disabled = data.timeline.length < 2;
+    armed(rm, 'Remover', 'Confirmar', function () { removeStep(s.id); });
+    td.appendChild(rm);
+    tb.appendChild(tr);
+  });
+
+  /* --- adoção --- */
+  var ta = tbody('tbl-adoption');
+  data.timeline.forEach(function (s) {
+    var p = findOrMake(data.adoption.points, s.id, { at: s.id, value: null, kind: 'observado', source: '' });
+    var tr = document.createElement('tr');
+    cell(tr).textContent = s.label;
+    cell(tr).appendChild(numberInput(p.value, function (v) { p.value = v; touch(); }));
+    cell(tr).appendChild(selectInput(
+      [{ value: 'observado', label: 'Observado' }, { value: 'estimado', label: 'Estimado' }, { value: 'sinal', label: 'Sinal de plataforma' }],
+      p.kind, function (v) { p.kind = v; touch(); }
+    ));
+    cell(tr).appendChild(selectInput(sourceOptions(), p.source, function (v) { p.source = v; touch(); }));
+    ta.appendChild(tr);
+  });
+
+  /* --- plataformas --- */
+  var tp = tbody('tbl-platforms');
+  data.platforms.forEach(function (pl) {
+    data.timeline.forEach(function (s, i) {
+      var p = findOrMake(pl.points, s.id, { at: s.id, value: null, qualifier: '' });
+      var tr = document.createElement('tr');
+      var c0 = cell(tr);
+      if (i === 0) { c0.textContent = pl.label; c0.style.color = '#f3f7f5'; }
+      else { c0.textContent = ''; }
+      cell(tr).textContent = s.label;
+      cell(tr).appendChild(textInput(p.qualifier, function (v) { p.qualifier = v; touch(); }, '+ ou ≈'));
+      cell(tr).appendChild(numberInput(p.value, function (v) { p.value = v; touch(); }, '1'));
+      tp.appendChild(tr);
+    });
+  });
+
+  /* --- cenário --- */
+  var ts = tbody('tbl-scenario');
+  data.scenario.parts.forEach(function (part, i) {
+    var tr = document.createElement('tr');
+    cell(tr).appendChild(textInput(part.label, function (v) { part.label = v; touch(); }));
+    cell(tr).appendChild(numberInput(part.value, function (v) { part.value = v === null ? 0 : v; touch(); checkScenario(); }));
+    var td = cell(tr);
+    if (i === 0) {
+      td.appendChild(selectInput(stepOptions(), data.scenario.at, function (v) {
+        data.scenario.at = v; save(); renderAll();
+      }));
+    } else {
+      td.textContent = 'mesmo momento';
+    }
+    ts.appendChild(tr);
+  });
+  checkScenario();
+
+  /* --- retrato histórico --- */
+  var tr2 = tbody('tbl-archive');
+  data.archive.rows.forEach(function (r) {
+    var tr = document.createElement('tr');
+    cell(tr).appendChild(textInput(r.label, function (v) { r.label = v; touch(); }));
+    cell(tr).appendChild(textInput(r.display, function (v) { r.display = v; touch(); }));
+    tr2.appendChild(tr);
+  });
+}
+
+function checkScenario() {
+  var sum = data.scenario.parts.reduce(function (a, p) { return a + (isNum(p.value) ? p.value : 0); }, 0);
+  var ref = null;
+  data.adoption.points.forEach(function (p) { if (p.at === data.scenario.at && isNum(p.value)) ref = p.value; });
+  var box = $('scenario-check');
+  if (ref === null) {
+    box.textContent = 'Não há medição de adoção no momento escolhido, então não há total para conferir.';
+    box.setAttribute('data-tone', 'neutro');
+  } else if (Math.abs(sum - ref) < 0.05) {
+    box.textContent = 'As parcelas somam ' + fmtPct(sum) + ' e fecham o total observado.';
+    box.setAttribute('data-tone', 'ok');
+  } else {
+    box.textContent = 'As parcelas somam ' + fmtPct(sum) + ', e o total observado é ' + fmtPct(ref) + '. A grade mostra a diferença.';
+    box.setAttribute('data-tone', 'erro');
+  }
+}
+
+function findOrMake(arr, at, seed) {
+  for (var i = 0; i < arr.length; i++) if (arr[i].at === at) return arr[i];
+  arr.push(seed);
+  return seed;
+}
+
+/* Botão que pede uma segunda confirmação, sem abrir diálogo do navegador. */
+function armed(btn, idle, confirmLabel, action) {
+  var timer = null;
+  btn.addEventListener('click', function () {
+    if (btn.getAttribute('data-armed') === '1') {
+      clearTimeout(timer);
+      btn.removeAttribute('data-armed');
+      action();
+      btn.textContent = idle;
+      return;
+    }
+    btn.setAttribute('data-armed', '1');
+    btn.textContent = confirmLabel;
+    timer = setTimeout(function () {
+      btn.removeAttribute('data-armed');
+      btn.textContent = idle;
+    }, 4000);
+  });
+}
+
+function sortTimeline(keepId) {
+  data.timeline.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  if (keepId) {
+    var i = stepIndex(keepId);
+    if (i >= 0) cursor = i;
+  }
+  cursor = Math.max(0, Math.min(data.timeline.length - 1, cursor));
+}
+
+function addStep() {
+  var label = $('new-label').value.trim();
+  var date = $('new-date').value;
+  if (!label || !date) {
+    setStatus('io-status', 'Para adicionar um momento, preencha o rótulo e a data.', 'erro');
+    $('drawer-editor').open = true;
+    return;
+  }
+  var id = 'm' + Math.random().toString(36).slice(2, 8);
+  var short = $('new-short').value.trim() || label;
+  data.timeline.push({ id: id, label: label, short: short, date: date });
+  data.adoption.points.push({ at: id, value: null, kind: 'observado', source: '' });
+  data.platforms.forEach(function (pl) { pl.points.push({ at: id, value: null, qualifier: '' }); });
+  sortTimeline(id);
+  $('new-label').value = '';
+  $('new-short').value = '';
+  $('new-date').value = '';
+  save();
+  renderAll();
+  setStatus('io-status', 'Momento “' + label + '” adicionado. Preencha os valores nas tabelas acima.', 'ok');
+}
+
+function removeStep(id) {
+  if (data.timeline.length < 2) return;
+  var keep = function (p) { return p.at !== id; };
+  data.timeline = data.timeline.filter(function (s) { return s.id !== id; });
+  data.adoption.points = data.adoption.points.filter(keep);
+  data.platforms.forEach(function (pl) { pl.points = pl.points.filter(keep); });
+  if (data.scenario.at === id) data.scenario.at = data.timeline[data.timeline.length - 1].id;
+  if (data.archive.at === id) data.archive.at = data.timeline[0].id;
+  cursor = Math.max(0, Math.min(data.timeline.length - 1, cursor));
+  save();
+  renderAll();
+  setStatus('io-status', 'Momento removido, junto com os valores presos a ele.', 'ok');
+}
+
+/* ==========================================================================
+   13. Entrada e saída
+   ========================================================================== */
+
+function setStatus(id, msg, tone) {
+  var n = $(id);
+  if (!n) return;
+  n.textContent = msg;
+  n.setAttribute('data-tone', tone || 'neutro');
+}
+
+function exportJson() {
+  var text = JSON.stringify(data, null, 2);
+  var blob = new Blob([text], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'ia-em-escala-dados.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  setStatus('io-status', 'Arquivo ia-em-escala-dados.json gerado.', 'ok');
+}
+
+function copyJson() {
+  var text = JSON.stringify(data, null, 2);
+  var done = function () { setStatus('io-status', 'JSON copiado para a área de transferência.', 'ok'); };
+  var fallback = function () {
+    $('import-text').value = text;
+    $('import-text').select();
+    setStatus('io-status', 'A cópia automática não foi permitida aqui. O JSON está na caixa abaixo, selecionado.', 'neutro');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function applyJson(text, origem) {
+  var parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    setStatus('io-status', 'Não deu para ler o JSON: ' + e.message, 'erro');
+    return;
+  }
+  try {
+    data = normalize(parsed);
+  } catch (e) {
+    setStatus('io-status', 'O JSON foi lido, mas não tem o formato do painel: ' + e.message, 'erro');
+    return;
+  }
+  cursor = Math.max(0, Math.min(data.timeline.length - 1, cursor));
+  scenarioOn = false;
+  save();
+  renderAll();
+  setStatus('io-status', 'Dados aplicados de ' + origem + '. ' + data.timeline.length + ' momentos carregados.', 'ok');
+}
+
+function resetData() {
+  data = clone(DEFAULT_DATA);
+  cursor = data.timeline.length - 1;
+  scenarioOn = false;
+  try { localStorage.removeItem(STORE_KEY); } catch (e) { /* segue sem persistência */ }
+  save();
+  renderAll();
+  setStatus('io-status', 'Dados originais restaurados.', 'ok');
+}
+
+function eraseLocalData() {
+  try {
+    localStorage.removeItem(STORE_KEY);
+    storageOk = true;
+  } catch (e) {
+    setStatus('io-status', 'Este navegador não permitiu apagar os dados locais.', 'erro');
+    return;
+  }
+  data = clone(DEFAULT_DATA);
+  cursor = data.timeline.length - 1;
+  scenarioOn = false;
+  renderAll();
+  setStatus('io-status', 'Dados locais apagados. O painel voltou aos dados originais sem gravá-los novamente.', 'ok');
+}
+
+/* ==========================================================================
+   14. Percorrer a linha do tempo
+   ========================================================================== */
+
+function togglePlay() {
+  var btn = $('play');
+  if (playTimer) { stopPlay(); return; }
+  if (data.timeline.length < 2) return;
+  if (cursor >= data.timeline.length - 1) setCursor(0);
+  btn.setAttribute('aria-pressed', 'true');
+  btn.textContent = 'Parar';
+  playTimer = setInterval(function () {
+    if (cursor >= data.timeline.length - 1) { stopPlay(); return; }
+    setCursor(cursor + 1);
+  }, 1600);
+}
+
+function stopPlay() {
+  if (playTimer) clearInterval(playTimer);
+  playTimer = null;
+  var btn = $('play');
+  btn.setAttribute('aria-pressed', 'false');
+  btn.textContent = 'Percorrer';
+}
+
+/* ==========================================================================
+   15. Ligações
+   ========================================================================== */
+
+function init() {
+  data = load();
+  cursor = data.timeline.length - 1;
+
+  var input = $('scrub-input');
+  input.addEventListener('input', function () {
+    stopPlay();
+    setCursor(parseInt(input.value, 10) || 0);
+  });
+
+  $('play').addEventListener('click', togglePlay);
+
+  $('scenario-toggle').addEventListener('click', function () {
+    scenarioOn = !scenarioOn;
+    renderViz();
+  });
+
+  $('add-step').addEventListener('click', addStep);
+  $('export-json').addEventListener('click', exportJson);
+  $('copy-json').addEventListener('click', copyJson);
+  $('import-pick').addEventListener('click', function () { $('import-file').click(); });
+  $('import-apply').addEventListener('click', function () {
+    var t = $('import-text').value.trim();
+    if (!t) { setStatus('io-status', 'Cole um JSON na caixa antes de aplicar.', 'erro'); return; }
+    applyJson(t, 'texto colado');
+  });
+  armed($('reset-data'), 'Restaurar dados originais', 'Confirmar restauração', resetData);
+  armed($('erase-local-data'), 'Apagar dados deste navegador', 'Confirmar exclusão local', eraseLocalData);
+
+  $('import-file').addEventListener('change', function (ev) {
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { applyJson(String(r.result), f.name); };
+    r.onerror = function () { setStatus('io-status', 'Não deu para abrir o arquivo.', 'erro'); };
+    r.readAsText(f);
+    ev.target.value = '';
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (e.key === 'ArrowRight') { stopPlay(); setCursor(cursor + 1); }
+    else if (e.key === 'ArrowLeft') { stopPlay(); setCursor(cursor - 1); }
+    else if (e.key === 'Home') { stopPlay(); setCursor(0); }
+    else if (e.key === 'End') { stopPlay(); setCursor(data.timeline.length - 1); }
+    else return;
+    e.preventDefault();
+  });
+
+  renderAll();
+
+  if (!storageOk) {
+    setStatus('io-status', 'Este navegador não guardou as edições. Exporte o JSON para não perder o trabalho.', 'erro');
+  }
+}
+
+/* Exposto para inspeção pelo console durante a validação. */
+window.PAINEL = {
+  get data() { return data; },
+  get cursor() { return cursor; },
+  setCursor: setCursor,
+  dotRects: dotRects,
+  resolveAt: resolveAt,
+  normalize: normalize,
+  applyJson: applyJson,
+  reset: resetData,
+  defaults: DEFAULT_DATA
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+
+</script>
+</body>
+</html>
